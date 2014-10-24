@@ -43,17 +43,15 @@ typeB_plane1:
 
 typeB_plane0:
        ld hl,PSGaiden_decomp_buffer
-+:     .rept 7
++:     .rept 8 index n
          ld a,(hl)                      ; load byte
          cpl                            ; complement
          ld (de),a                      ; write byte
-         inc hl                         ; HL++
          inc de                         ; DE++
+         .if n != 7
+           inc hl                       ; HL++ (we don't need it on last rept)
+         .endif
        .endr
-       ld a,(hl)                        ; load byte
-       cpl                              ; complement
-       ld (de),a                        ; write byte
-       inc de                           ; DE++ (we don't need to HL++ since copy is over)
      pop hl
      jp _BitplaneDone
 
@@ -93,22 +91,26 @@ typeD_plane0:
        ld bc,PSGaiden_decomp_buffer
 +:     ld a,(hl)                        ; read bitmask
        inc hl
-       .rept 8
+       .rept 8 index n
          rlca                           ; get bit out of bitmask
          jr c,+                         ; if 1, copy from previous bitmask
          ldi                            ; copy new data (DE)=(HL), DE++, HL++, BC--
-         inc bc                         ;
-         inc bc                         ; we need to BC++ twice because of that LDI...
+         .if n != 7
+           inc bc                       ; we need to BC++ twice because of that LDI...
+           inc bc                       ; (we don't need them on last rept)
+         .endif
          jp ++
 +:       ld ixl,a                       ; faster than push AF
            ld a,(bc)                    ; load byte
            cpl                          ; complement
            ld (de),a                    ; write byte
-           inc bc                       ; BC++
+           .if n != 7
+             inc bc                     ; BC++ (we don't need it on last rept)
+           .endif
            inc de                       ; DE++
          ld a,ixl                       ; restore A
 ++:
-     .endr
+       .endr
      pop bc
      jp _BitplaneDone
 
@@ -134,22 +136,26 @@ typeE_proc:
 typeC_proc:
 +:     ld a,(hl)                        ; read bitmask
        inc hl
-       .rept 8
+       .rept 8 index n
          rlca                           ; get bit out of bitmask
          jr c,+                         ; if 1, copy from previous bitmask
          ldi                            ; copy new data (DE)=(HL), DE++, HL++, BC--
-         inc bc                         ;
-         inc bc                         ; we need to BC++ twice because of that LDI...
+         .if n != 7
+           inc bc                       ; we need to BC++ twice because of that LDI...
+           inc bc                       ; (we don't need them on last rept)
+         .endif
          jp ++
 
 +:       ld ixl,a                       ; faster than push AF
            ld a,(bc)                    ; load byte
-           inc bc                       ; BC++
            ld (de),a                    ; write byte
            inc de                       ; DE++
+           .if n != 7
+             inc bc                     ; BC++ (we don't need it on last rept)
+           .endif
          ld a,ixl                       ; restore A
 ++:
-     .endr
+       .endr
      pop bc
      djnz _BitplaneLoop
      jp _WriteVRAM
