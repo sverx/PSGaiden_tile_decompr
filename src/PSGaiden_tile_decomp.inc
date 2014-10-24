@@ -10,7 +10,7 @@
 .section "PSGaiden tile decompressor - sverx's version" align 256 free
 ; HL = compressed tile binary (source)
 ; DE = VRAM address (destination) - ORed with $4000
-; destroys AF,BC,DE,HL
+; destroys AF,BC,DE,HL,IX
 
 typeE:
        jp typeE_proc
@@ -94,19 +94,19 @@ typeD_plane0:
 +:     ld a,(hl)                        ; read bitmask
        inc hl
        .rept 8
-         rlc a                          ; get bit out of bitmask
+         rlca                           ; get bit out of bitmask
          jr c,+                         ; if 1, copy from previous bitmask
          ldi                            ; copy new data (DE)=(HL), DE++, HL++, BC--
          inc bc                         ;
          inc bc                         ; we need to BC++ twice because of that LDI...
          jp ++
-+:       push af                        ; can't find no better idea :|
++:       ld ixl,a                       ; faster than push AF
            ld a,(bc)                    ; load byte
            cpl                          ; complement
            ld (de),a                    ; write byte
            inc bc                       ; BC++
            inc de                       ; DE++
-         pop af
+         ld a,ixl                       ; restore A
 ++:
      .endr
      pop bc
@@ -135,19 +135,19 @@ typeC_proc:
 +:     ld a,(hl)                        ; read bitmask
        inc hl
        .rept 8
-         rlc a                          ; get bit out of bitmask
+         rlca                           ; get bit out of bitmask
          jr c,+                         ; if 1, copy from previous bitmask
          ldi                            ; copy new data (DE)=(HL), DE++, HL++, BC--
          inc bc                         ;
          inc bc                         ; we need to BC++ twice because of that LDI...
          jp ++
 
-+:       push af                        ; can't find no better idea :|
++:       ld ixl,a                       ; faster than push AF
            ld a,(bc)                    ; load byte
            inc bc                       ; BC++
            ld (de),a                    ; write byte
            inc de                       ; DE++
-         pop af
+         ld a,ixl                       ; restore A
 ++:
      .endr
      pop bc
@@ -210,22 +210,24 @@ _BitplaneDone:
      djnz _BitplaneLoop
      ; tile is complete - ; fallback to _WriteVRAM
 
-_WriteVRAM:
+_WriteVRAM:                             ; now loopless!
      push hl
        ld hl,PSGaiden_decomp_buffer     ; HL = source buffer
-       ld b,8                           ; 8 times x 4 bytes
--:     ld de,8                          ; each byte is 8 byte apart
-       .rept 3
-         ld a,(hl)
-         out ($be),a                    ; write to vram 3 bytes
-         add hl,de
+       ld bc,-8*3+1                     ; after each group of 4 bytes, go back this amount
+       ld de,8                          ; each byte is 8 byte apart
+       .rept 8 index k
+         .rept 4 index n
+           ld a,(hl)
+           out ($be),a                  ; write to vram 4 bytes
+           .if n != 3
+             add hl,de                  ; we don't need this the last time
+           .endif
+         .endr
+         .if k != 7
+           add hl,bc                    ; go back for next run, if it's not the last
+         .endif
        .endr
-        ld a,(hl)
-        out ($be),a                     ; write to vram last byte
-        ld de,-8*3+1                    ; go back for next run
-        add hl,de
-        djnz -
-      pop hl
+     pop hl
 
    pop bc
    dec bc                               ; more tiles?
