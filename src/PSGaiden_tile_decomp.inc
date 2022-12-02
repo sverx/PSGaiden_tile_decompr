@@ -88,7 +88,7 @@ typeC_plane0:
        ld bc,PSGaiden_decomp_buffer
        jp typeC_proc
 
-typeE_proc:
+typeE:
      pop hl
      push bc
        ld b,a                           ; move mask (was type) in B
