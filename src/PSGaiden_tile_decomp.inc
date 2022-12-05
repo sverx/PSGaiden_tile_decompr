@@ -177,8 +177,10 @@ typeC_proc:
 
 PSGaiden_tile_decompr:                  ; ******** procedure entry point *************
    ld c,$bf                             ; set VRAM address
+   di
    out (c),e
    out (c),d
+   ei
 
    ld c,(hl)                            ; BC = number of tiles
    inc hl
