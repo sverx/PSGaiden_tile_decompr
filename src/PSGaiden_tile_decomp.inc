@@ -12,8 +12,23 @@
 ; DE = VRAM address (destination) - ORed with $4000
 ; destroys AF,BC,DE,HL,IX
 
-typeE:
-       jp typeE_proc
+PSGaiden_jump_table:                    ; this needs to be 256 bytes aligned!!!!
+  .db <typeA_plane0, <typeA_plane1, <typeA_plane2, <typeE    ; [0x00,0x03]
+  .rept 12
+    .db <typeE                                               ; [0x04,0x0F]
+  .endr
+  .db <typeB_plane0, <typeB_plane1, <typeB_plane2, <typeE    ; [0x10,0x13]
+  .rept 12
+    .db <typeE                                               ; [0x14,0x1F]
+  .endr
+  .db <typeC_plane0, <typeC_plane1, <typeC_plane2, <typeE    ; [0x20,0x23]
+  .rept 12+16
+    .db <typeE                                               ; [0x24,0x3F]
+  .endr
+  .db <typeD_plane0, <typeD_plane1, <typeD_plane2, <typeE    ; [0x40,0x43]
+  .rept 12+16*11
+    .db <typeE                                               ; [0x44,0xFF]
+  .endr
 
 typeA_plane2:
        ld hl,PSGaiden_decomp_buffer+16
@@ -73,6 +88,25 @@ typeC_plane0:
        ld bc,PSGaiden_decomp_buffer
        jp typeC_proc
 
+typeE:
+     pop hl
+     push bc
+       ld b,a                           ; move mask (was type) in B
+       ld a,(hl)                        ; read next byte ('common')
+       inc hl
+       ld c,9                           ; so that B doesn't change when BC--
+       .rept 8
+         rlc b                          ; get bit out of bitmask
+         jr c,+                         ; if 1, copy from common byte
+         ldi                            ; copy new data (DE)=(HL), DE++, HL++, BC--
+         jp ++
++:       ld (de),a                      ; write 'common' byte
+         inc de
+++:
+       .endr
+     pop bc
+     jp _BitplaneDone
+
 typeD_plane2:
      pop hl
      push bc
@@ -109,25 +143,6 @@ typeD_plane0:
            .endif
            inc de                       ; DE++
          ld a,ixl                       ; restore A
-++:
-       .endr
-     pop bc
-     jp _BitplaneDone
-
-typeE_proc:
-     pop hl
-     push bc
-       ld b,a                           ; move mask (was type) in B
-       ld a,(hl)                        ; read next byte ('common')
-       inc hl
-       ld c,9                           ; so that B doesn't change when BC--
-       .rept 8
-         rlc b                          ; get bit out of bitmask
-         jr c,+                         ; if 1, copy from common byte
-         ldi                            ; copy new data (DE)=(HL), DE++, HL++, BC--
-         jp ++
-+:       ld (de),a                      ; write 'common' byte
-         inc de
 ++:
        .endr
      pop bc
@@ -191,7 +206,7 @@ _BitplaneLoop:
        ld l,a
        ld h,>PSGaiden_jump_table
        ld l,(hl)
-       ld h,>typeE
+       inc h
        jp (hl)                          ; jump to desired routine
 
 _AllTheSame:
@@ -241,26 +256,6 @@ _WriteVRAM:                             ; now loopless!
    or c
    jp nz,_MainLoop                      ; let's go again!
    ret
-.ends
-
-.section "PSGaiden tile decompressor jump table" align 256 free
-PSGaiden_jump_table:                    ; this needs to be 256 bytes aligned!!!!
-  .db <typeA_plane0, <typeA_plane1, <typeA_plane2, <typeE    ; [0x00,0x03]
-  .rept 12
-    .db <typeE                                               ; [0x04,0x0F]
-  .endr
-  .db <typeB_plane0, <typeB_plane1, <typeB_plane2, <typeE    ; [0x10,0x13]
-  .rept 12
-    .db <typeE                                               ; [0x14,0x1F]
-  .endr
-  .db <typeC_plane0, <typeC_plane1, <typeC_plane2, <typeE    ; [0x20,0x23]
-  .rept 12+16
-    .db <typeE                                               ; [0x24,0x3F]
-  .endr
-  .db <typeD_plane0, <typeD_plane1, <typeD_plane2, <typeE    ; [0x40,0x43]
-  .rept 12+16*11
-    .db <typeE                                               ; [0x44,0xFF]
-  .endr
 .ends
 
 .ramsection "PSGaiden tile decompressor memory" slot 3
